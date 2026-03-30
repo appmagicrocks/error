@@ -1,0 +1,8 @@
+pages:
+  script:
+    - echo 'Nothing to build for plain HTML'
+  artifacts:
+    paths:
+      - public
+  only:
+    - main
