@@ -198,19 +198,33 @@ const buf=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buf);gl.bufferData(gl.
 const ap=gl.getAttribLocation(pg,'a');gl.enableVertexAttribArray(ap);gl.vertexAttribPointer(ap,2,gl.FLOAT,false,0,0);
 const uR=gl.getUniformLocation(pg,'R');const uT=gl.getUniformLocation(pg,'T');const t0=performance.now();
 
-// 30fps cap — animation crawls at T*0.04, no perceptible difference vs 60fps
+// Render first frame immediately (user sees background), then measure to decide if we animate
 let last=0;const FRAME_MS=1000/30;
-let frames=0;const WARMUP=10;
-(function loop(now){
-  if(!now) now=performance.now();
-  if(frames>WARMUP+1 && now-last<FRAME_MS){requestAnimationFrame(loop);return;}
-  last=now;
+let animating=false;
+
+function draw(now){
   gl.uniform2f(uR,c.width,c.height);gl.uniform1f(uT,(now-t0)/1000.0);gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
-  frames++;
-  if(frames<=WARMUP){requestAnimationFrame(loop);}
-  else if(frames===WARMUP+1){const elapsed=(now-t0)/1000.0;const avgFps=WARMUP/elapsed;if(avgFps<24)return;requestAnimationFrame(loop);}
-  else{requestAnimationFrame(loop);}
-})();
+}
+
+// Frame 1: render + force GPU flush to measure real cost
+const f1Start=performance.now();
+draw(f1Start);
+gl.finish(); // blocks until GPU is actually done — gives us real render time
+const f1Time=performance.now()-f1Start;
+
+// If first frame took <40ms (>25fps capable), animate at 30fps. Otherwise stay static.
+if(f1Time<40){
+  animating=true;
+  last=performance.now();
+  (function loop(now){
+    if(!now) now=performance.now();
+    if(now-last<FRAME_MS){requestAnimationFrame(loop);return;}
+    last=now;
+    draw(now);
+    requestAnimationFrame(loop);
+  })();
+}
+// else: first frame is already painted, static background looks great
 </script>
 </body>
 </html>
